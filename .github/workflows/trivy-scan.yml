@@ -1,0 +1,47 @@
+name: Trivy Image Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  trivy-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for cross-platform build safety)
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:scan-latest .
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit.deb
+          sudo dpkg -i trivy_Linux-64bit.deb
+          trivy --version
+
+      - name: Run Trivy image scan (fail on HIGH or CRITICAL)
+        run: |
+          trivy image --exit-code 1 --severity HIGH,CRITICAL --format table --output trivy-output.txt ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:scan-latest
+        # jika trivy mengembalikan exit-code 1, job akan gagal (security gate)
+
+      - name: Upload Trivy result as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-output
+          path: trivy-output.txt
