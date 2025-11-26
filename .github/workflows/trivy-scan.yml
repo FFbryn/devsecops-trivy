@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU (for cross-platform build safety)
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
@@ -24,7 +24,9 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:scan-latest .
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/$REPO_OWNER/$REPO_NAME:scan-latest .
 
       - name: Install Trivy
         run: |
@@ -32,16 +34,18 @@ jobs:
           sudo apt-get install -y wget
           wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit.deb
           sudo dpkg -i trivy_Linux-64bit.deb
-          trivy --version
 
-      - name: Run Trivy image scan (fail on HIGH or CRITICAL)
+      - name: Run Trivy Scan
         run: |
-          trivy image --exit-code 1 --severity HIGH,CRITICAL --format table --output trivy-output.txt ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:scan-latest
-        # jika trivy mengembalikan exit-code 1, job akan gagal (security gate)
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+          trivy image --exit-code 1 --severity HIGH,CRITICAL \
+            ghcr.io/$REPO_OWNER/$REPO_NAME:scan-latest
 
-      - name: Upload Trivy result as artifact
+      - name: Upload Trivy Output
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: trivy-output
           path: trivy-output.txt
+
