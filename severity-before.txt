@@ -1,0 +1,5 @@
+     56 "CRITICAL"
+    837 "HIGH"
+    906 "LOW"
+   2130 "MEDIUM"
+     20 "UNKNOWN"
